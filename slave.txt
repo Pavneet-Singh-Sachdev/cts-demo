@@ -1,0 +1,81 @@
+Master server: 12.34.56.111
+Slave server: 12.23.34.222
+
+1. Setting Up The Master
+The first thing you need to accomplish in the replication process is to install and configure the master server. If you have not installed MySQL, then you can install MySQL using the following command:
+
+ root@repl-master:~# sudo apt-get update
+ root@repl-master:~# sudo apt-get install mysql-server mysql-client -y
+ root@repl-master:~# sudo mysql_secure_installation
+Once the MySQL installation process is completed, use the following command to edit the MySQL configuration file:
+
+root@repl-master:~# sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+Next, in the same file, find the line containing bind-address = 127.0.0.1 and replace that IP address with the IP address of your master replication server. So, the line will look like:
+bind-address = 12.34.56.111
+
+Next, find the following lines in the file:
+
+server-id = 1
+log_bin = /var/log/mysql/mysql-bin.log
+You will see that the above lines have been commented, just uncomment these lines and exit the edit interface by clicking CTRL + X. Save the changes and restart the MySQL service for the changes to take effect.
+
+Restart MySQL service using the following command:
+
+root@repl-master:~# sudo service mysql restart
+2. Create A New User For Slave
+The next step is to create a new user for your slave server. Use the following command to create it:
+
+root@repl-master:~# mysql -uroot -p;
+mysql> CREATE USER ‘slave’@’12.34.56.789‘ IDENTIFIED BY ‘SLAVE_PASSWORD‘;
+mysql> GRANT REPLICATION SLAVE ON . TO ‘slave’@’12.34.56.222 ‘;
+mysql> FLUSH PRIVILEGES;
+mysql> FLUSH TABLES WITH READ LOCK;
+You will use the following command to know the current status of the master server:
+
+mysql> SHOW MASTER STATUS;
+This command will also tell the slave to follow the master from this position.
+
+3. Move Data From Master To Slave
+Now that you have marked the position, you can start moving the data from the master to the slave. You need to create a MySQL dump file to move the data. Use the following command to create the dump file:
+
+root@repl-master:~# mysqldump -u root -p –all-databases –master-data > data.sql
+To copy the dump file to the slave, use the following command:
+
+scp data.sql root@12.34.56.222
+Unlock the tables using the following command:
+
+mysql> UNLOCK TABLES;	
+4. Configure Slave Server
+Now, all you need to do is configure the slave server and test if replication is working. Ensure MySQL is installed.
+Open the configuration file in your slave server and update these lines:
+
+root@repl-slave:~# sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+In the same way that you did for the master server, you need to bind the IP address and uncomment those two lines for the slave server.
+Now, restart the MySQL server using the following command:
+
+root@repl-slave:~# sudo service mysql restart
+5. Import Data Dump
+Use the following command to import the dump file to the slave server:
+
+root@repl-slave:~# mysql -uroot -p < data.sql
+Once the data is imported, you need to stop MySQL in the slave server using the following command:
+
+root@repl-slave:~# mysql -uroot -p;
+mysql> STOP SLAVE;
+You have finally imported the dump files and updated the master IP address, password, log file name, and position, to enable the master to communicate with the slave without any issues.
+
+6. Start Slave Server
+Next, use the “Start Slave” command to start operating the slave server.
+
+START SLAVE;
+7. Test MySQL Master Slave Replication
+To test if your MySQL master slave replication works, just create a database in your master server and see if it is replicated in the slave server. If you can see the database in the slave, then it is working fine.
+
+Create a test database in a master server called ‘sampledb’.
+
+CREATE DATABASE sampledb;
+Now login to your slave server and list the databases, and if you see the “sampledb” there, then the master slave replication process is working fine.
+
+Login to your slave server and use the following command to list all databases:
+
+show databases;
